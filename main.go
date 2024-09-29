@@ -46,10 +46,10 @@ func main() {
 		bot.WithDefaultGateway(),
 		bot.WithEventListenerFunc(func(event bot.Event) {
 			if e, ok := event.(*events.ApplicationCommandInteractionCreate); ok {
-				commandListener(e, postgresAccessor)
+				commandListener(e, postgresAccessor, config)
 			}
 			if e, ok := event.(*events.ModalSubmitInteractionCreate); ok {
-				modalListener(e, postgresAccessor)
+				modalListener(e, postgresAccessor, config)
 			}
 		}),
 	)
@@ -80,7 +80,11 @@ func main() {
 	<-s
 }
 
-func commandListener(event *events.ApplicationCommandInteractionCreate, db postgres.PostgresAccessor) {
+func commandListener(event *events.ApplicationCommandInteractionCreate, db postgres.PostgresAccessor, config config.Config) {
+	if config.GuildID != event.GuildID().String() {
+		return
+	}
+	
 	data := event.SlashCommandInteractionData()
 	if handler, ok := commandHandlers[data.CommandName()]; ok {
 		handler(event, db)
@@ -89,7 +93,11 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 	}
 }
 
-func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.PostgresAccessor) {
+func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.PostgresAccessor, config config.Config) {
+	if config.GuildID != event.GuildID().String() {
+		return
+	}
+	
 	if handler, ok := modalHandlers[event.Data.CustomID]; ok {
 		handler(event, db)
 	} else {
