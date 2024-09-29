@@ -55,6 +55,8 @@ func getQuotesUntilLimit(event *events.ApplicationCommandInteractionCreate, pg p
 	data := event.SlashCommandInteractionData()
 	quotes := ""
 	quoteIDs := ""
+	isCombined := false
+	slog.Info("ShowID: ", slog.Bool("showID", isShowID))
 	for i := 0; i < count; i++ {
 		message, err := pg.GetRandomQuote(data.GuildID().String())
 		if err != nil {
@@ -68,11 +70,13 @@ func getQuotesUntilLimit(event *events.ApplicationCommandInteractionCreate, pg p
 				if len(quotes+quoteIDs+"\n")+100 > 2000 {
 					quotes = quoteIDs + "\n" + quotes
 					slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
+					isCombined = true
 					break
 				}
 			} else {
 				quotes = quoteIDs + "\n" + quotes
 				slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
+				isCombined = true
 				break
 			}
 		} else {
@@ -80,9 +84,14 @@ func getQuotesUntilLimit(event *events.ApplicationCommandInteractionCreate, pg p
 				quotes += message.Quote + "\n"
 			} else {
 				slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
+				isCombined = true
 				break
 			}
 		}
+	}
+
+	if !isCombined && isShowID {
+		quotes = quoteIDs + "\n" + quotes
 	}
 
 	return quotes, nil
