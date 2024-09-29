@@ -1,25 +1,28 @@
-# Use the official Golang image as the build stage
-FROM golang:1.21-alpine AS build
+# Use the official Golang image as the base image
+FROM golang:1.20-alpine AS builder
 
-# Set the Current Working Directory inside the container
+# Set destination for COPY
 WORKDIR /app
 
-# Copy go.mod and go.sum files
+# Download Go modules
 COPY go.mod go.sum ./
-
-# Copy the source code into the container
 COPY . .
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download
 
+# Copy the source code. Note the slash at the end, as explained in
+# https://docs.docker.com/reference/dockerfile/#copy
 COPY *.go ./
 
-# Copy the migrations directory into the container
-COPY migrations ./migrations
-
-# Build the Go app
+# Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /quote-bot
 
-# Command to run the executable
+# Optional:
+# To bind to a TCP port, runtime parameters must be supplied to the docker command.
+# But we can document in the Dockerfile what ports
+# the application is going to listen on by default.
+# https://docs.docker.com/reference/dockerfile/#expose
+EXPOSE 8080
+
+# Run
 CMD ["/quote-bot"]
