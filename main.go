@@ -19,8 +19,9 @@ import (
 
 var (
 	commandHandlers = map[string]func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor){
-		commands.QuoteCommandCreate.Name:    commands.SendRandomQuote,
-		commands.AddQuoteCommandCreate.Name: commands.SendAddQuote,
+		commands.QuoteCommandCreate.Name:      commands.SendRandomQuote,
+		commands.AddQuoteCommandCreate.Name:   commands.SendAddQuote,
+		commands.MultiQuoteCommandCreate.Name: commands.SendRandomMultiQuote,
 		// Add more commands here
 	}
 
@@ -32,6 +33,7 @@ var (
 	newCommands = []discord.ApplicationCommandCreate{
 		commands.AddQuoteCommandCreate,
 		commands.QuoteCommandCreate,
+		commands.MultiQuoteCommandCreate,
 		// Add more commands here
 	}
 )
@@ -84,7 +86,7 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 	if config.GuildID != event.GuildID().String() {
 		return
 	}
-	
+
 	data := event.SlashCommandInteractionData()
 	if handler, ok := commandHandlers[data.CommandName()]; ok {
 		handler(event, db)
@@ -97,7 +99,7 @@ func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.Postg
 	if config.GuildID != event.GuildID().String() {
 		return
 	}
-	
+
 	if handler, ok := modalHandlers[event.Data.CustomID]; ok {
 		handler(event, db)
 	} else {
