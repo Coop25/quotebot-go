@@ -17,6 +17,11 @@ var QuoteCommandCreate = discord.SlashCommandCreate{
 			Description: "If the response should only be visible to you",
 			Required:    true,
 		},
+		discord.ApplicationCommandOptionBool{
+			Name:        "show-id",
+			Description: "If the quote id should be shown",
+			Required:    false,
+		},
 	},
 }
 
@@ -28,6 +33,11 @@ func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postg
 		return
 	}
 	ephemeral := data.Bool("ephemeral")
+	showID := data.Bool("show-id")
+
+	if showID {
+		message.Quote = message.Quote + " \nQuote Id: " + message.ID.String()
+	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
 		SetContent(message.Quote).
