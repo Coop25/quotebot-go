@@ -17,11 +17,14 @@ COPY *.go ./
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -o /quote-bot
 
-# Use a minimal base image to run the Go app
-FROM alpine:latest
-
 # Install CA certificates
 RUN apk --no-cache add ca-certificates
+
+# Use a minimal base image to run the Go app
+FROM scratch
+
+# Copy the CA certificates from the builder stage
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy the binary from the build stage
 COPY --from=builder /quote-bot /quote-bot
