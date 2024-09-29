@@ -15,11 +15,11 @@ RUN go mod download
 
 COPY *.go ./
 
+# Copy the migrations directory into the container
+COPY migrations ./migrations
+
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /quote-bot
-
-# Use a minimal base image to run the Go app
-FROM scratch
 
 # Copy the binary from the build stage
 COPY --from=build /quote-bot /quote-bot
