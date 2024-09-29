@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS quotes (
+    id UUID PRIMARY KEY,
+    guild_id VARCHAR(255) NOT NULL,
+    quote TEXT NOT NULL
+);

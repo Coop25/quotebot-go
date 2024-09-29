@@ -1,0 +1,40 @@
+---
+version: "3"
+vars:
+  SWAGGER_VERSION: 4.1.3
+
+
+tasks:
+  default:
+    cmds: [task -l]
+    silent: true
+
+  run:
+    dotenv:
+      - ".env"
+    cmds:
+      - go run main.go
+
+  apigen:
+    desc: Generate http client and server code from openapi spec
+    cmds:
+      - go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.16.3
+      - mkdir -p ./gen/openapi/memeapi
+      - oapi-codegen -package restapi -generate "types" ./swagger/swagger.yml > ./gen/openapi/memeapi/restapi-types.go
+      - oapi-codegen -package restapi -generate "chi-server" ./swagger/swagger.yml > ./gen/openapi/memeapi/restapi-server.go
+      - oapi-codegen -package restapi -generate "spec" ./swagger/swagger.yml > ./gen/openapi/memeapi/restapi-spec.go
+  
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
+  download-swagger-ui:
+    desc: "Download and extract Swagger UI files"
+    cmds:
+      - mkdir -p swaggerui
+      - curl -L https://github.com/swagger-api/swagger-ui/archive/refs/tags/v{{.SWAGGER_VERSION}}.zip -o swaggerui.zip
+      - unzip swaggerui.zip -d swaggerui
+      - mv swaggerui/swagger-ui-{{.SWAGGER_VERSION}}/dist/* swaggerui/
+      - rm -rf swaggerui/swagger-ui-{{.SWAGGER_VERSION}} swaggerui.zip
+      - sed -i 's|https://petstore.swagger.io/v2/swagger.json|/swagger.json|g' swaggerui/index.html
