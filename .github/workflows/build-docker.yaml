@@ -17,5 +17,5 @@ jobs:
           password: ${{secrets.GITHUB_TOKEN}}
       - name: 'Build Inventory Image'
         run: |
-          docker build . --tag ghcr.io/coop25/meme-index-api:latest
-          docker push ghcr.io/coop25/meme-index-api:latest
+          docker build . --tag ghcr.io/coop25/discord-go:latest
+          docker push ghcr.io/coop25/discord-go:latest
