@@ -22,7 +22,7 @@ cd quotebot-go
 ## TODO List
 
 - [x] **Add Quote Command**: Implement the command to add quotes via a modal interaction.
-  - [ ] **Display UUID**: add ability to show id for the quote.
+  - [x] **Display UUID**: add ability to show id for the quote.
 - [x] **Database Integration**: Set up and integrate a database to store quotes.
 - [x] **Error Handling**: Improve error handling and logging throughout the application.
 - [ ] **Retrieve Quote Command**: Implement the command to retrieve and display quotes based off of id.
