@@ -1,19 +1,26 @@
-# Use the official Golang image as the base image
-FROM golang:1.20-alpine AS builder
-# Set destination for COPY
+# Use the official Golang image as the build stage
+FROM golang:1.21-alpine AS build
+
+# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Download Go modules
+# Copy go.mod and go.sum files
 COPY go.mod go.sum ./
-COPY . .
 
+# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download
 
-# Copy the source code. Note the slash at the end, as explained in
-# https://docs.docker.com/reference/dockerfile/#copy
-COPY *.go ./
+# Copy the source code into the container
+COPY . .
 
-# Build
+# Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /quote-bot
-# Run
+
+# Use a minimal base image to run the Go app
+FROM scratch
+
+# Copy the binary from the build stage
+COPY --from=build /quote-bot /quote-bot
+
+# Command to run the executable
 CMD ["/quote-bot"]
