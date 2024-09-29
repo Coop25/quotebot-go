@@ -21,8 +21,5 @@ COPY migrations ./migrations
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /quote-bot
 
-# Copy the binary from the build stage
-COPY --from=build /quote-bot /quote-bot
-
 # Command to run the executable
 CMD ["/quote-bot"]
