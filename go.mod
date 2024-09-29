@@ -1,6 +1,6 @@
 module github.com/Coop25/quotebot-go
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/disgoorg/disgo v0.18.12
