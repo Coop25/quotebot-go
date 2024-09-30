@@ -25,7 +25,7 @@ var (
 		// Add more commands here
 	}
 
-	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor){
+	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor, config.Config){
 		commands.AddQuoteModalName: commands.HandleAddQuoteModalSubmit,
 		// Add more modals here
 	}
@@ -101,7 +101,7 @@ func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.Postg
 	}
 
 	if handler, ok := modalHandlers[event.Data.CustomID]; ok {
-		handler(event, db)
+		handler(event, db, config)
 	} else {
 		slog.Warn("unknown modal", slog.String("modal", event.Data.CustomID))
 	}
