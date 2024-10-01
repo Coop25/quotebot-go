@@ -5,7 +5,9 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Coop25/quotebot-go/accessors/postgres"
 	"github.com/Coop25/quotebot-go/commands"
@@ -36,6 +38,9 @@ var (
 		commands.MultiQuoteCommandCreate,
 		// Add more commands here
 	}
+
+	// Cooldown map to track the last execution time of commands for each user
+	commandCooldowns = make(map[string]time.Time)
 )
 
 func main() {
@@ -88,6 +93,37 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 	}
 
 	data := event.SlashCommandInteractionData()
+	ephemeral := data.Bool("ephemeral")
+	if !ephemeral && !isAllowedChannel(data.CommandName()+":"+event.Channel().ID().String(), config) {
+		event.CreateMessage(discord.NewMessageCreateBuilder().
+			SetContent("This command cannot be used in this channel.").
+			SetEphemeral(true).
+			Build(),
+		)
+		return
+	}
+
+	if !ephemeral && data.CommandName() != commands.AddQuoteCommandCreate.Name {
+		userID := event.User().ID.String()
+		commandName := event.SlashCommandInteractionData().CommandName()
+
+		// Check if the user is within the cooldown period
+		if lastExecution, ok := commandCooldowns[userID+commandName]; ok {
+			if time.Since(lastExecution) < config.CooldownDuration {
+				remaining := config.CooldownDuration - time.Since(lastExecution)
+				event.CreateMessage(discord.NewMessageCreateBuilder().
+					SetContent("You are on cooldown. Please wait " + remaining.String() + " before using this command again.").
+					SetEphemeral(true).
+					Build(),
+				)
+				return
+			}
+		}
+
+		// Update the last execution time
+		commandCooldowns[userID+commandName] = time.Now()
+	}
+
 	if handler, ok := commandHandlers[data.CommandName()]; ok {
 		handler(event, db)
 	} else {
@@ -105,4 +141,23 @@ func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.Postg
 	} else {
 		slog.Warn("unknown modal", slog.String("modal", event.Data.CustomID))
 	}
+}
+
+func isAllowedChannel(commandChannel string, config config.Config) bool {
+	if config.AllowedChannels == "" {
+		return true
+	}
+	parts := strings.Split(config.AllowedChannels, ",")
+	doesContainCmdName := false
+	for _, allowedChannel := range parts {
+		if commandChannel == allowedChannel {
+			return true
+		}
+
+		if strings.Split(commandChannel, ":")[0] == strings.Split(allowedChannel, ":")[0] {
+			doesContainCmdName = true
+		}
+	}
+
+	return !doesContainCmdName
 }
