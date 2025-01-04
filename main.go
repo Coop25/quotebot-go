@@ -23,6 +23,7 @@ var (
 		commands.QuoteCommandCreate.Name:      commands.SendRandomQuote,
 		commands.AddQuoteCommandCreate.Name:   commands.SendAddQuote,
 		commands.MultiQuoteCommandCreate.Name: commands.SendRandomMultiQuote,
+		commands.RollCommandCreate.Name:       commands.RollCommand,
 		// Add more commands here
 	}
 
@@ -35,6 +36,7 @@ var (
 		commands.AddQuoteCommandCreate,
 		commands.QuoteCommandCreate,
 		commands.MultiQuoteCommandCreate,
+		commands.RollCommandCreate,
 		// Add more commands here
 	}
 
@@ -43,6 +45,7 @@ var (
 
 	nonCooldownCommands = []string{
 		commands.AddQuoteCommandCreate.Name,
+		commands.RollCommandCreate.Name,
 	}
 )
 
