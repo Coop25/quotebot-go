@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -41,6 +40,10 @@ var (
 
 	// Cooldown map to track the last execution time of commands for each user
 	commandCooldowns = make(map[string]time.Time)
+
+	nonCooldownCommands = []string{
+		commands.AddQuoteCommandCreate.Name,
+	}
 )
 
 func main() {
@@ -94,7 +97,12 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 
 	data := event.SlashCommandInteractionData()
 	ephemeral := data.Bool("ephemeral")
-	if !ephemeral && !isAllowedChannel(data.CommandName()+":"+event.Channel().ID().String(), config) {
+	configChannel := config.AllowedChannelsMap[data.CommandName()]
+	isAllowed := true
+	if configChannel != "" {
+		isAllowed = event.Channel().ID().String() == configChannel
+	}
+	if !ephemeral && !isAllowed {
 		event.CreateMessage(discord.NewMessageCreateBuilder().
 			SetContent("This command cannot be used in this channel.").
 			SetEphemeral(true).
@@ -103,7 +111,7 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 		return
 	}
 
-	if !ephemeral && data.CommandName() != commands.AddQuoteCommandCreate.Name {
+	if !ephemeral && !contains(nonCooldownCommands, data.CommandName()) && !isAllowed {
 		userID := event.User().ID.String()
 		commandName := event.SlashCommandInteractionData().CommandName()
 
@@ -143,21 +151,12 @@ func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.Postg
 	}
 }
 
-func isAllowedChannel(commandChannel string, config config.Config) bool {
-	if config.AllowedChannels == "" {
-		return true
-	}
-	parts := strings.Split(config.AllowedChannels, ",")
-	doesContainCmdName := false
-	for _, allowedChannel := range parts {
-		if commandChannel == allowedChannel {
+// contains checks if a slice contains a specific string
+func contains(slice []string, target string) bool {
+	for _, item := range slice {
+		if item == target {
 			return true
 		}
-
-		if strings.Split(commandChannel, ":")[0] == strings.Split(allowedChannel, ":")[0] {
-			doesContainCmdName = true
-		}
 	}
-
-	return !doesContainCmdName
+	return false
 }
