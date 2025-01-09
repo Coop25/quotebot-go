@@ -15,7 +15,7 @@ var MultiQuoteCommandCreate = discord.SlashCommandCreate{
 		discord.ApplicationCommandOptionBool{
 			Name:        "ephemeral",
 			Description: "If the response should only be visible to you",
-			Required:    true,
+			Required:    false,
 		},
 		discord.ApplicationCommandOptionInt{
 			Name:        "count",
