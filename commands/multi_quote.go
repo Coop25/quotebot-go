@@ -12,15 +12,15 @@ var MultiQuoteCommandCreate = discord.SlashCommandCreate{
 	Name:        "multi-quote",
 	Description: "Get a random quote",
 	Options: []discord.ApplicationCommandOption{
-		discord.ApplicationCommandOptionBool{
-			Name:        "ephemeral",
-			Description: "If the response should only be visible to you",
-			Required:    true,
-		},
 		discord.ApplicationCommandOptionInt{
 			Name:        "count",
 			Description: "The number of quotes to return",
 			Required:    true,
+		},
+		discord.ApplicationCommandOptionBool{
+			Name:        "ephemeral",
+			Description: "If the response should only be visible to you",
+			Required:    false,
 		},
 		discord.ApplicationCommandOptionBool{
 			Name:        "show-id",

@@ -15,7 +15,7 @@ var QuoteCommandCreate = discord.SlashCommandCreate{
 		discord.ApplicationCommandOptionBool{
 			Name:        "ephemeral",
 			Description: "If the response should only be visible to you",
-			Required:    true,
+			Required:    false,
 		},
 		discord.ApplicationCommandOptionBool{
 			Name:        "show-id",
