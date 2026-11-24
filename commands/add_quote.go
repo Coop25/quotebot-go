@@ -23,6 +23,7 @@ func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres
 		AddActionRow(
 			discord.NewTextInput("quote", discord.TextInputStyleParagraph, "Quote").
 				WithRequired(true).
+				WithMaxLength(MaxQuoteLength).
 				WithPlaceholder("Type your quote here..."),
 		).
 		Build()

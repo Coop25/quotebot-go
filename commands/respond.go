@@ -10,6 +10,25 @@ import (
 	"github.com/disgoorg/snowflake/v2"
 )
 
+const (
+	// maxMessageLength is Discord's limit on message content length.
+	maxMessageLength = 2000
+	// MaxQuoteLength leaves room for the quote ID header that is added when a
+	// quote is shown, so a single quote always fits in one message.
+	MaxQuoteLength = 1900
+)
+
+// truncate shortens s to at most max characters, marking the cut with an
+// ellipsis. Quotes saved before MaxQuoteLength existed can be longer than
+// Discord allows.
+func truncate(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max-1]) + "…"
+}
+
 // noMentions stops user-submitted quote text from pinging users, roles or
 // @everyone when the bot repeats it.
 var noMentions = &discord.AllowedMentions{

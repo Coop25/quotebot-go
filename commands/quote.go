@@ -37,11 +37,11 @@ func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postg
 	showID := data.Bool("show-id")
 
 	if showID {
-		message.Quote = "> **Quote Id:** " + message.ID.String()+"\n\n" + message.Quote
+		message.Quote = "> **Quote Id:** " + message.ID.String() + "\n\n" + message.Quote
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(message.Quote).
+		SetContent(truncate(message.Quote, maxMessageLength)).
 		SetEphemeral(ephemeral).
 		SetAllowedMentions(noMentions).
 		Build(),
