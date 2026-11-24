@@ -18,4 +18,11 @@ func TestIsOwner(t *testing.T) {
 	if isOwner(owner, "") {
 		t.Error("everyone should be refused when OWNER_ID is not set")
 	}
+	if isOwner(owner, "   ") {
+		t.Error("everyone should be refused when OWNER_ID is only whitespace")
+	}
+	// Env editors (e.g. Portainer's) make stray whitespace easy to add.
+	if !isOwner(owner, " 123456789012345678 \n") {
+		t.Error("surrounding whitespace in OWNER_ID should be ignored")
+	}
 }

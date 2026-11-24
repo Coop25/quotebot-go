@@ -36,6 +36,8 @@ func LoadConfig() Config {
 		log.Fatalf("Failed to load config: %s", err)
 	}
 
+	config.OwnerID = strings.TrimSpace(config.OwnerID)
+
 	config.AllowedChannelsMap, err = parseAllowedChannels(config.AllowedChannels)
 	if err != nil {
 		log.Fatalf("Failed to load config: %s", err)

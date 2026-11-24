@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Coop25/quotebot-go/accessors/postgres"
@@ -41,8 +42,9 @@ var (
 var downloadClient = &http.Client{Timeout: 30 * time.Second}
 
 // isOwner reports whether userID is the configured owner. Nobody is the owner
-// when OWNER_ID is not set.
+// when OWNER_ID is not set. Surrounding whitespace in OWNER_ID is ignored.
 func isOwner(userID snowflake.ID, ownerID string) bool {
+	ownerID = strings.TrimSpace(ownerID)
 	return ownerID != "" && userID.String() == ownerID
 }
 
