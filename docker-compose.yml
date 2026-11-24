@@ -16,7 +16,9 @@ services:
     volumes:
       - quotebot-db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quotebot -d quotebot"]
+      # -h 127.0.0.1 checks the TCP listener the bot uses; the unix socket is
+      # also up during first-run setup, before TCP connections are accepted.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U quotebot -d quotebot"]
       interval: 5s
       timeout: 5s
       retries: 10

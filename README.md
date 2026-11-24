@@ -50,9 +50,16 @@ only exist while `ENABLE_TRANSFER_COMMANDS=true`, and only the user in
 
 1. **Publish a GitHub release first.** That builds the `:latest` image
    that contains these commands.
-2. **On the old instance**, set `OWNER_ID` and `ENABLE_TRANSFER_COMMANDS=true`,
-   then re-pull the image and recreate the container (in Portainer:
-   *Recreate* with *Re-pull image* on).
+2. **On the old instance**, set `OWNER_ID` and `ENABLE_TRANSFER_COMMANDS=true`
+   and redeploy with the latest image. In Portainer, *Recreate* keeps the old
+   settings, so use one of these instead:
+   - **Deployed as a stack:** open the stack, add the two variables under
+     *Environment variables*, then *Update the stack* with *Re-pull image*
+     turned on.
+   - **Deployed as a single container:** open the container, choose
+     *Duplicate/Edit*, add the two variables under *Advanced container
+     settings → Env*, turn on *Always pull the image*, then *Deploy the
+     container* and confirm replacing the old one.
 3. Run `/export`. The bot DMs you `quotebot-export-YYYY-MM-DD.json`. Save it.
 4. **Stop the old container.** Never run two instances with the same token
    at once: both would answer every command.
