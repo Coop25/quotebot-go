@@ -16,6 +16,7 @@ import (
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/webhook"
 	"github.com/disgoorg/snowflake/v2"
 )
 
@@ -28,7 +29,7 @@ var (
 		// Add more commands here
 	}
 
-	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor, config.Config){
+	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor, webhook.Client){
 		commands.AddQuoteModalName: commands.HandleAddQuoteModalSubmit,
 		// Add more modals here
 	}
@@ -57,6 +58,17 @@ func main() {
 	config := config.LoadConfig()
 	postgresAccessor := postgres.New(&config)
 
+	var newQuoteWebhook webhook.Client
+	if config.NewQuoteWebhook != "" {
+		var err error
+		newQuoteWebhook, err = webhook.NewWithURL(config.NewQuoteWebhook)
+		if err != nil {
+			slog.Error("error while creating new quote webhook client", slog.Any("err", err))
+			return
+		}
+		defer newQuoteWebhook.Close(context.TODO())
+	}
+
 	client, err := disgo.New(config.Token,
 		bot.WithDefaultGateway(),
 		bot.WithEventListenerFunc(func(event bot.Event) {
@@ -64,7 +76,7 @@ func main() {
 				commandListener(e, postgresAccessor, config)
 			}
 			if e, ok := event.(*events.ModalSubmitInteractionCreate); ok {
-				modalListener(e, postgresAccessor, config)
+				modalListener(e, postgresAccessor, config, newQuoteWebhook)
 			}
 		}),
 	)
@@ -135,13 +147,13 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 	}
 }
 
-func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.PostgresAccessor, config config.Config) {
+func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.PostgresAccessor, config config.Config, newQuoteWebhook webhook.Client) {
 	if config.GuildID != event.GuildID().String() {
 		return
 	}
 
 	if handler, ok := modalHandlers[event.Data.CustomID]; ok {
-		handler(event, db, config)
+		handler(event, db, newQuoteWebhook)
 	} else {
 		slog.Warn("unknown modal", slog.String("modal", event.Data.CustomID))
 	}
