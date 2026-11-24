@@ -1,9 +1,11 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/Coop25/quotebot-go/config"
 	_ "github.com/lib/pq"
@@ -19,6 +21,14 @@ func New(config *config.Config) *postgresAccessor {
 		config.PGDBHost, config.PGDBPort, config.PGDBUser, config.PGDBPass, config.PGDBName, config.PGDBSSLMode)
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// sql.Open only validates the DSN; ping so bad credentials or an
+	// unreachable host fail at startup rather than on the first command.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 

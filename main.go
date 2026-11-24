@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -53,7 +54,17 @@ var (
 )
 
 func main() {
-	slog.Info("starting example...")
+	if err := run(); err != nil {
+		slog.Error("bot stopped with an error", slog.Any("err", err))
+		os.Exit(1)
+	}
+}
+
+// run starts the bot and blocks until it receives a shutdown signal. Any
+// error that leaves the bot unable to work is returned so main can exit
+// with a non-zero status (letting Docker or systemd restart it).
+func run() error {
+	slog.Info("starting quotebot...")
 	slog.Info("disgo version", slog.String("version", disgo.Version))
 	config := config.LoadConfig()
 	postgresAccessor := postgres.New(&config)
@@ -63,8 +74,7 @@ func main() {
 		var err error
 		newQuoteWebhook, err = webhook.NewWithURL(config.NewQuoteWebhook)
 		if err != nil {
-			slog.Error("error while creating new quote webhook client", slog.Any("err", err))
-			return
+			return fmt.Errorf("creating new quote webhook client: %w", err)
 		}
 		defer newQuoteWebhook.Close(context.TODO())
 	}
@@ -81,30 +91,30 @@ func main() {
 		}),
 	)
 	if err != nil {
-		slog.Error("error while building disgo instance", slog.Any("err", err))
-		return
+		return fmt.Errorf("building disgo instance: %w", err)
 	}
 
 	guildID, err := snowflake.Parse(config.GuildID)
 	if err != nil {
-		slog.Error("error while parsing guildID", slog.Any("err", err))
-		return
+		return fmt.Errorf("parsing GUILD_ID: %w", err)
 	}
 
 	defer client.Close(context.TODO())
 
+	// Not fatal: commands registered on a previous run keep working.
 	if _, err = client.Rest().SetGuildCommands(client.ApplicationID(), guildID, newCommands); err != nil {
 		slog.Error("error while registering commands", slog.Any("err", err))
 	}
 
 	if err = client.OpenGateway(context.TODO()); err != nil {
-		slog.Error("error while connecting to gateway", slog.Any("err", err))
+		return fmt.Errorf("connecting to gateway: %w", err)
 	}
 
 	slog.Info("Bot is running. Press CTRL+C to exit.")
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
+	return nil
 }
 
 func commandListener(event *events.ApplicationCommandInteractionCreate, db postgres.PostgresAccessor, config config.Config) {
