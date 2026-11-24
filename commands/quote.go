@@ -30,6 +30,7 @@ func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postg
 	message, err := pg.GetRandomQuote(data.GuildID().String())
 	if err != nil {
 		slog.Error("error on getting random quote", slog.Any("err", err))
+		replyQuoteLookupError(event, err)
 		return
 	}
 	ephemeral := data.Bool("ephemeral")

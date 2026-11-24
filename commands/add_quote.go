@@ -47,6 +47,7 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 
 	if quote == "" {
 		slog.Error("error on retrieving quote component")
+		replyError(event, "Your quote was empty, so nothing was saved.")
 		return
 	}
 	guildID := event.GuildID().String()
@@ -54,6 +55,7 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 	message, err := pg.AddQuote(quote, guildID)
 	if err != nil {
 		slog.Error("error on adding quote", slog.Any("err", err))
+		replyError(event, "Something went wrong while saving your quote. Please try again later.")
 		return
 	}
 	slog.Info("Added quote", slog.Any("quote", message.Quote))

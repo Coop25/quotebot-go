@@ -38,6 +38,7 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	quotes, err := getQuotesUntilLimit(event, pg, count, showID)
 	if err != nil {
 		slog.Error("error on getting random quote", slog.Any("err", err))
+		replyQuoteLookupError(event, err)
 		return
 	}
 
