@@ -27,28 +27,41 @@ import (
 // gatewayReadyTimeout bounds how long startup waits for Discord's Ready event.
 const gatewayReadyTimeout = 60 * time.Second
 
-var (
-	// Command handlers return an error when the command failed, which refunds
-	// the user's cooldown.
-	commandHandlers = map[string]func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor) error{
+// commandHandler runs a slash command. It returns an error when the command
+// failed, which refunds the user's cooldown.
+type commandHandler func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor) error
+
+// buildCommands returns the handlers and the command list to register with
+// Discord. Registration replaces the whole list, so commands left out here
+// (like /export and /import when the switch is off) disappear from Discord.
+func buildCommands(cfg config.Config) (map[string]commandHandler, []discord.ApplicationCommandCreate) {
+	handlers := map[string]commandHandler{
 		commands.QuoteCommandCreate.Name:      commands.SendRandomQuote,
 		commands.AddQuoteCommandCreate.Name:   commands.SendAddQuote,
 		commands.MultiQuoteCommandCreate.Name: commands.SendRandomMultiQuote,
 		commands.RollCommandCreate.Name:       commands.RollCommand,
 		// Add more commands here
 	}
-
-	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor, webhook.Client){
-		commands.AddQuoteModalName: commands.HandleAddQuoteModalSubmit,
-		// Add more modals here
-	}
-
-	newCommands = []discord.ApplicationCommandCreate{
+	creates := []discord.ApplicationCommandCreate{
 		commands.AddQuoteCommandCreate,
 		commands.QuoteCommandCreate,
 		commands.MultiQuoteCommandCreate,
 		commands.RollCommandCreate,
 		// Add more commands here
+	}
+
+	if cfg.EnableTransferCommands {
+		handlers[commands.ExportCommandCreate.Name] = commands.NewExportHandler(cfg.OwnerID)
+		handlers[commands.ImportCommandCreate.Name] = commands.NewImportHandler(cfg.OwnerID)
+		creates = append(creates, commands.ExportCommandCreate, commands.ImportCommandCreate)
+	}
+	return handlers, creates
+}
+
+var (
+	modalHandlers = map[string]func(*events.ModalSubmitInteractionCreate, postgres.PostgresAccessor, webhook.Client){
+		commands.AddQuoteModalName: commands.HandleAddQuoteModalSubmit,
+		// Add more modals here
 	}
 
 	// Cooldown map to track the last execution time of commands for each user
@@ -58,6 +71,14 @@ var (
 	nonCooldownCommands = []string{
 		commands.AddQuoteCommandCreate.Name,
 		commands.RollCommandCreate.Name,
+		commands.ExportCommandCreate.Name,
+		commands.ImportCommandCreate.Name,
+	}
+
+	// Commands that work in any channel regardless of ALLOWED_CHANNELS.
+	anyChannelCommands = []string{
+		commands.ExportCommandCreate.Name,
+		commands.ImportCommandCreate.Name,
 	}
 )
 
@@ -76,6 +97,15 @@ func run() error {
 	slog.Info("disgo version", slog.String("version", disgo.Version))
 	config := config.LoadConfig()
 	postgresAccessor := postgres.New(&config)
+
+	commandHandlers, newCommands := buildCommands(config)
+	if config.EnableTransferCommands {
+		if config.OwnerID == "" {
+			slog.Warn("ENABLE_TRANSFER_COMMANDS is on but OWNER_ID is not set; /export and /import will refuse everyone")
+		} else {
+			slog.Info("transfer commands /export and /import are enabled")
+		}
+	}
 
 	var newQuoteWebhook webhook.Client
 	if config.NewQuoteWebhook != "" {
@@ -97,7 +127,7 @@ func run() error {
 				readyOnce.Do(func() { close(ready) })
 			}
 			if e, ok := event.(*events.ApplicationCommandInteractionCreate); ok {
-				commandListener(e, postgresAccessor, config)
+				commandListener(e, postgresAccessor, config, commandHandlers)
 			}
 			if e, ok := event.(*events.ModalSubmitInteractionCreate); ok {
 				modalListener(e, postgresAccessor, config, newQuoteWebhook)
@@ -149,7 +179,7 @@ func run() error {
 	return nil
 }
 
-func commandListener(event *events.ApplicationCommandInteractionCreate, db postgres.PostgresAccessor, config config.Config) {
+func commandListener(event *events.ApplicationCommandInteractionCreate, db postgres.PostgresAccessor, config config.Config, commandHandlers map[string]commandHandler) {
 	if config.GuildID != event.GuildID().String() {
 		return
 	}
@@ -158,7 +188,7 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 	ephemeral := data.Bool("ephemeral")
 	configChannel := config.AllowedChannelsMap[data.CommandName()]
 	isAllowed := true
-	if configChannel != "" {
+	if configChannel != "" && !contains(anyChannelCommands, data.CommandName()) {
 		isAllowed = event.Channel().ID().String() == configChannel
 	}
 	if !ephemeral && !isAllowed {

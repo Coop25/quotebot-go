@@ -1,0 +1,50 @@
+# QuoteBot with its own Postgres database.
+#
+# Works with `docker compose up -d` (settings from a .env file next to this
+# file) or as a Portainer stack (settings in the stack's environment
+# variables). Only the Discord settings need filling in: the database is
+# created and wired up automatically, and is not reachable from outside the
+# stack.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quotebot
+      POSTGRES_DB: quotebot
+      POSTGRES_PASSWORD: ${PG_DB_PASS:-quotebot}
+    volumes:
+      - quotebot-db:/var/lib/postgresql/data
+    healthcheck:
+      # -h 127.0.0.1 checks the TCP listener the bot uses; the unix socket is
+      # also up during first-run setup, before TCP connections are accepted.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U quotebot -d quotebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  bot:
+    image: ghcr.io/coop25/discord-go:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Database: preconfigured for the db service above.
+      PG_DB_HOST: db
+      PG_DB_PORT: "5432"
+      PG_DB_USER: quotebot
+      PG_DB_PASS: ${PG_DB_PASS:-quotebot}
+      PG_DB_NAME: quotebot
+      PG_DB_SSL_MODE: disable
+      # Discord: fill these in.
+      TOKEN: ${TOKEN}
+      GUILD_ID: ${GUILD_ID}
+      OWNER_ID: ${OWNER_ID:-}
+      NEW_QUOTE_WEBHOOK: ${NEW_QUOTE_WEBHOOK:-}
+      ALLOWED_CHANNELS: ${ALLOWED_CHANNELS:-}
+      COOLDOWN_DURATION: ${COOLDOWN_DURATION:-60s}
+      ENABLE_TRANSFER_COMMANDS: ${ENABLE_TRANSFER_COMMANDS:-false}
+
+volumes:
+  quotebot-db:
