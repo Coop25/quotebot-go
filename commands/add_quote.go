@@ -4,10 +4,9 @@ import (
 	"log/slog"
 
 	"github.com/Coop25/quotebot-go/accessors/postgres"
-	"github.com/Coop25/quotebot-go/config"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
-    "github.com/disgoorg/disgo/webhook"
+	"github.com/disgoorg/disgo/webhook"
 )
 
 var AddQuoteCommandCreate = discord.SlashCommandCreate{
@@ -17,13 +16,14 @@ var AddQuoteCommandCreate = discord.SlashCommandCreate{
 }
 var AddQuoteModalName = AddQuoteCommandCreate.Name + "-modal"
 
-func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	modal := discord.NewModalCreateBuilder().
 		SetCustomID(AddQuoteModalName).
 		SetTitle("Add a Quote").
 		AddActionRow(
 			discord.NewTextInput("quote", discord.TextInputStyleParagraph, "Quote").
 				WithRequired(true).
+				WithMaxLength(MaxQuoteLength).
 				WithPlaceholder("Type your quote here..."),
 		).
 		Build()
@@ -39,13 +39,17 @@ func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres
 	if err != nil {
 		slog.Error("error on creating modal", slog.Any("err", err))
 	}
+	return err
 }
 
-func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg postgres.PostgresAccessor, config config.Config) {
+// HandleAddQuoteModalSubmit saves a submitted quote. newQuoteWebhook may be nil
+// when no webhook is configured.
+func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg postgres.PostgresAccessor, newQuoteWebhook webhook.Client) {
 	quote := event.Data.Text("quote")
 
 	if quote == "" {
 		slog.Error("error on retrieving quote component")
+		replyError(event, "Your quote was empty, so nothing was saved.")
 		return
 	}
 	guildID := event.GuildID().String()
@@ -53,22 +57,20 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 	message, err := pg.AddQuote(quote, guildID)
 	if err != nil {
 		slog.Error("error on adding quote", slog.Any("err", err))
+		replyError(event, "Something went wrong while saving your quote. Please try again later.")
 		return
 	}
 	slog.Info("Added quote", slog.Any("quote", message.Quote))
 
-	if config.NewQuoteWebhook != "" {
-		webhookClient, err := webhook.NewWithURL(config.NewQuoteWebhook)
-		if err != nil {
-			slog.Error("error on creating webhook client", slog.Any("err", err))
-		}
-		_, err = webhookClient.CreateMessage(discord.WebhookMessageCreate{
-			Content: "> __**Quote ID:**__ "+ message.ID.String()+ "\n\n" + message.Quote,
+	if newQuoteWebhook != nil {
+		_, err = newQuoteWebhook.CreateMessage(discord.WebhookMessageCreate{
+			Content:         "> __**Quote ID:**__ " + message.ID.String() + "\n\n" + message.Quote,
+			AllowedMentions: noMentions,
 		})
 		if err != nil {
 			slog.Error("error on sending webhook", slog.Any("err", err))
 		}
-		_, err = webhookClient.CreateMessage(discord.WebhookMessageCreate{
+		_, err = newQuoteWebhook.CreateMessage(discord.WebhookMessageCreate{
 			Content: "**. . . . . . . . . . . . . . . . . . . . . . . . . . . .**",
 		})
 		if err != nil {
@@ -77,7 +79,8 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent("> __**Quote ID:**__ "+ message.ID.String()+ "\n\n" + message.Quote).
+		SetContent("> __**Quote ID:**__ " + message.ID.String() + "\n\n" + message.Quote).
+		SetAllowedMentions(noMentions).
 		Build(),
 	)
 	if err != nil {

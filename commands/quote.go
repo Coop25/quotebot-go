@@ -25,26 +25,29 @@ var QuoteCommandCreate = discord.SlashCommandCreate{
 	},
 }
 
-func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	data := event.SlashCommandInteractionData()
 	message, err := pg.GetRandomQuote(data.GuildID().String())
 	if err != nil {
 		slog.Error("error on getting random quote", slog.Any("err", err))
-		return
+		replyQuoteLookupError(event, err)
+		return err
 	}
 	ephemeral := data.Bool("ephemeral")
 	showID := data.Bool("show-id")
 
 	if showID {
-		message.Quote = "> **Quote Id:** " + message.ID.String()+"\n\n" + message.Quote
+		message.Quote = "> **Quote Id:** " + message.ID.String() + "\n\n" + message.Quote
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(message.Quote).
+		SetContent(truncate(message.Quote, maxMessageLength)).
 		SetEphemeral(ephemeral).
+		SetAllowedMentions(noMentions).
 		Build(),
 	)
 	if err != nil {
 		slog.Error("error on sending response", slog.Any("err", err))
 	}
+	return err
 }

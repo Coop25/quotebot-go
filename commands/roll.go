@@ -35,7 +35,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	data := event.SlashCommandInteractionData()
 	sides := data.Int("sides")
 	ephemeral := data.Bool("ephemeral")
@@ -52,25 +52,27 @@ func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.
 		SetEphemeral(ephemeral).
 		Build()
 
-	if err := event.CreateMessage(response); err != nil {
+	err := event.CreateMessage(response)
+	if err != nil {
 		slog.Error("error sending response", slog.Any("err", err))
 	}
+	return err
 }
 
 func generateDiceArt(roll, sides int) string {
-    rollStr := strconv.Itoa(roll)
-    sidesStr := strconv.Itoa(sides)
-    width := len(sidesStr)
-    if len(rollStr) > width {
-        width = len(rollStr)
-    }
+	rollStr := strconv.Itoa(roll)
+	sidesStr := strconv.Itoa(sides)
+	width := len(sidesStr)
+	if len(rollStr) > width {
+		width = len(rollStr)
+	}
 
-    topBottom := "+" + strings.Repeat("-", width+2) + "+"
-    middle := "|" + strings.Repeat(" ", width+2) + "|"
+	topBottom := "+" + strings.Repeat("-", width+2) + "+"
+	middle := "|" + strings.Repeat(" ", width+2) + "|"
 
-    // Center the roll number
-    padding := (width - len(rollStr)) / 2
-    rollLine := "|" + strings.Repeat(" ", padding+1) + rollStr + strings.Repeat(" ", width-len(rollStr)-padding+1) + "|"
+	// Center the roll number
+	padding := (width - len(rollStr)) / 2
+	rollLine := "|" + strings.Repeat(" ", padding+1) + rollStr + strings.Repeat(" ", width-len(rollStr)-padding+1) + "|"
 
-    return fmt.Sprintf("%s\n%s\n%s\n%s\n%s", topBottom, middle, rollLine, middle, topBottom)
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s", topBottom, middle, rollLine, middle, topBottom)
 }
