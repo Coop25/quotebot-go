@@ -37,7 +37,7 @@ var MultiQuoteCommandCreate = discord.SlashCommandCreate{
 	},
 }
 
-func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	data := event.SlashCommandInteractionData()
 	ephemeral := data.Bool("ephemeral")
 	showID := data.Bool("show-id")
@@ -50,7 +50,7 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	if err != nil {
 		slog.Error("error on getting random quotes", slog.Any("err", err))
 		replyQuoteLookupError(event, err)
-		return
+		return err
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
@@ -62,6 +62,7 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	if err != nil {
 		slog.Error("error on sending response", slog.Any("err", err))
 	}
+	return err
 }
 
 // formatMultiQuote renders as many of quotes as fit within maxLen characters.

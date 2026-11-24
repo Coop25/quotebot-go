@@ -20,6 +20,12 @@ func TestCheckCooldown(t *testing.T) {
 		t.Fatalf("unexpected remaining duration %v", remaining)
 	}
 
+	// A refunded cooldown (failed command) allows an immediate retry.
+	clearCooldown(key)
+	if _, onCooldown := checkCooldown(key, time.Minute); onCooldown {
+		t.Fatal("use after clearCooldown should be allowed")
+	}
+
 	// Once the cooldown has elapsed the command is allowed again.
 	commandCooldowns[key] = time.Now().Add(-2 * time.Minute)
 	if _, onCooldown := checkCooldown(key, time.Minute); onCooldown {

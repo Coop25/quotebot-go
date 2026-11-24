@@ -16,7 +16,7 @@ var AddQuoteCommandCreate = discord.SlashCommandCreate{
 }
 var AddQuoteModalName = AddQuoteCommandCreate.Name + "-modal"
 
-func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	modal := discord.NewModalCreateBuilder().
 		SetCustomID(AddQuoteModalName).
 		SetTitle("Add a Quote").
@@ -39,6 +39,7 @@ func SendAddQuote(event *events.ApplicationCommandInteractionCreate, pg postgres
 	if err != nil {
 		slog.Error("error on creating modal", slog.Any("err", err))
 	}
+	return err
 }
 
 // HandleAddQuoteModalSubmit saves a submitted quote. newQuoteWebhook may be nil

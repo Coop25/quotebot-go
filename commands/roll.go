@@ -35,7 +35,7 @@ func intPtr(i int) *int {
 	return &i
 }
 
-func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) {
+func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor) error {
 	data := event.SlashCommandInteractionData()
 	sides := data.Int("sides")
 	ephemeral := data.Bool("ephemeral")
@@ -52,9 +52,11 @@ func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.
 		SetEphemeral(ephemeral).
 		Build()
 
-	if err := event.CreateMessage(response); err != nil {
+	err := event.CreateMessage(response)
+	if err != nil {
 		slog.Error("error sending response", slog.Any("err", err))
 	}
+	return err
 }
 
 func generateDiceArt(roll, sides int) string {

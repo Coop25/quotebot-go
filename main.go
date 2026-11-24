@@ -28,7 +28,9 @@ import (
 const gatewayReadyTimeout = 60 * time.Second
 
 var (
-	commandHandlers = map[string]func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor){
+	// Command handlers return an error when the command failed, which refunds
+	// the user's cooldown.
+	commandHandlers = map[string]func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor) error{
 		commands.QuoteCommandCreate.Name:      commands.SendRandomQuote,
 		commands.AddQuoteCommandCreate.Name:   commands.SendAddQuote,
 		commands.MultiQuoteCommandCreate.Name: commands.SendRandomMultiQuote,
@@ -168,6 +170,8 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 		return
 	}
 
+	// Set when this use started a cooldown, so it can be refunded on failure.
+	cooldownKey := ""
 	if !ephemeral && !contains(nonCooldownCommands, data.CommandName()) {
 		key := event.User().ID.String() + data.CommandName()
 		if remaining, onCooldown := checkCooldown(key, config.CooldownDuration); onCooldown {
@@ -178,12 +182,18 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 			)
 			return
 		}
+		cooldownKey = key
 	}
 
-	if handler, ok := commandHandlers[data.CommandName()]; ok {
-		handler(event, db)
-	} else {
+	handler, ok := commandHandlers[data.CommandName()]
+	if !ok {
 		slog.Warn("unknown command", slog.String("command", data.CommandName()))
+		return
+	}
+	// Don't make users wait out a cooldown for a command that failed
+	// (e.g. "no quotes yet" or a database error), so they can retry.
+	if err := handler(event, db); err != nil && cooldownKey != "" {
+		clearCooldown(cooldownKey)
 	}
 }
 
@@ -212,6 +222,13 @@ func checkCooldown(key string, duration time.Duration) (time.Duration, bool) {
 	}
 	commandCooldowns[key] = time.Now()
 	return 0, false
+}
+
+// clearCooldown removes any cooldown recorded for key.
+func clearCooldown(key string) {
+	commandCooldownsMu.Lock()
+	defer commandCooldownsMu.Unlock()
+	delete(commandCooldowns, key)
 }
 
 // contains checks if a slice contains a specific string
