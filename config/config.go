@@ -21,6 +21,11 @@ type Config struct {
 	NewQuoteWebhook    string        `envconfig:"NEW_QUOTE_WEBHOOK" default:""`
 	AllowedChannels    string        `envconfig:"ALLOWED_CHANNELS" default:""`
 	CooldownDuration   time.Duration `envconfig:"COOLDOWN_DURATION" default:"60s"`
+	// OwnerID is the Discord user ID allowed to run /export and /import.
+	OwnerID string `envconfig:"OWNER_ID"`
+	// EnableTransferCommands registers /export and /import. Leave it off
+	// except when moving or backing up the bot.
+	EnableTransferCommands bool `envconfig:"ENABLE_TRANSFER_COMMANDS" default:"false"`
 	AllowedChannelsMap map[string]string
 }
 

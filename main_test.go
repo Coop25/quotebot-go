@@ -3,7 +3,40 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/Coop25/quotebot-go/config"
+	"github.com/disgoorg/disgo/discord"
 )
+
+func TestBuildCommandsTransferSwitch(t *testing.T) {
+	has := func(handlers map[string]commandHandler, creates []discord.ApplicationCommandCreate, name string) (bool, bool) {
+		_, inMap := handlers[name]
+		inList := false
+		for _, c := range creates {
+			if c.CommandName() == name {
+				inList = true
+			}
+		}
+		return inMap, inList
+	}
+
+	handlers, creates := buildCommands(config.Config{EnableTransferCommands: false})
+	for _, name := range []string{"export", "import"} {
+		if inMap, inList := has(handlers, creates, name); inMap || inList {
+			t.Errorf("switch off: %q registered (handler=%v, command=%v)", name, inMap, inList)
+		}
+	}
+	if inMap, inList := has(handlers, creates, "quote"); !inMap || !inList {
+		t.Error("switch off: /quote should still be registered")
+	}
+
+	handlers, creates = buildCommands(config.Config{EnableTransferCommands: true})
+	for _, name := range []string{"export", "import", "quote"} {
+		if inMap, inList := has(handlers, creates, name); !inMap || !inList {
+			t.Errorf("switch on: %q missing (handler=%v, command=%v)", name, inMap, inList)
+		}
+	}
+}
 
 func TestCheckCooldown(t *testing.T) {
 	key := "user1quote"
