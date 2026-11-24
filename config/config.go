@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -30,14 +31,29 @@ func LoadConfig() Config {
 		log.Fatalf("Failed to load config: %s", err)
 	}
 
-	if config.AllowedChannels != "" {
-		config.AllowedChannelsMap = make(map[string]string)
-		channels := config.AllowedChannels
-		channelList := strings.Split(channels, ",")
-		for _, channel := range channelList {
-			config.AllowedChannelsMap[strings.Split(channel, ":")[0]] = strings.Split(channel, ":")[1]
-		}
+	config.AllowedChannelsMap, err = parseAllowedChannels(config.AllowedChannels)
+	if err != nil {
+		log.Fatalf("Failed to load config: %s", err)
 	}
-	
+
 	return config
+}
+
+// parseAllowedChannels parses a comma separated list of command:channelID
+// pairs, e.g. "quote:123,multi-quote:456".
+func parseAllowedChannels(value string) (map[string]string, error) {
+	channels := make(map[string]string)
+	for _, entry := range strings.Split(value, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		command, channelID, ok := strings.Cut(entry, ":")
+		command, channelID = strings.TrimSpace(command), strings.TrimSpace(channelID)
+		if !ok || command == "" || channelID == "" {
+			return nil, fmt.Errorf("invalid ALLOWED_CHANNELS entry %q: expected command:channelID", entry)
+		}
+		channels[command] = channelID
+	}
+	return channels, nil
 }
