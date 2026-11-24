@@ -36,6 +36,11 @@ the bot itself and go into a new instance somewhere else.
 
 ## Design
 
+- **On/off switch:** a new `ENABLE_TRANSFER_COMMANDS` env var, false by
+  default. When it is off, `/export` and `/import` are left out of the command
+  list the bot registers at startup (`SetGuildCommands` replaces the whole
+  list), so they disappear from Discord entirely. The bot also ignores them if
+  they are called anyway. Turning it on and restarting brings them back.
 - **Owner check:** a new `OWNER_ID` env var holds the owner's Discord user ID.
   Both commands refuse (ephemerally) for anyone else, and refuse for everyone
   if `OWNER_ID` is not set. Both skip channel restrictions and cooldowns.
@@ -53,11 +58,14 @@ the bot itself and go into a new instance somewhere else.
   twice is harmless. Any invalid entry aborts the whole import with nothing
   written.
 - **Migration order:**
-  1. Deploy the new image to the old instance via Portainer, with `OWNER_ID` set.
+  1. Deploy the new image to the old instance via Portainer, with `OWNER_ID`
+     and `ENABLE_TRANSFER_COMMANDS=true` set.
   2. Run `/export`.
   3. Stop the old container.
-  4. Start the new instance.
+  4. Start the new instance with the same two settings.
   5. Run `/import` with the file.
+  6. Turn `ENABLE_TRANSFER_COMMANDS` off on the new instance and restart, so
+     the commands disappear.
 
   Both instances must never run at the same time with the same token.
 
