@@ -6,6 +6,7 @@ import (
 
 type PostgresAccessor interface {
 	GetRandomQuote(guildID string) (Quote, error)
+	GetRandomQuotes(guildID string, limit int) ([]Quote, error)
 	AddQuote(quote string, guildID string) (Quote, error)
 }
 

@@ -2,20 +2,27 @@ package commands
 
 import (
 	"log/slog"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/Coop25/quotebot-go/accessors/postgres"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
 )
 
+// maxMultiQuoteCount caps how many quotes one /multi-quote can ask for.
+const maxMultiQuoteCount = 20
+
 var MultiQuoteCommandCreate = discord.SlashCommandCreate{
 	Name:        "multi-quote",
-	Description: "Get a random quote",
+	Description: "Get multiple random quotes",
 	Options: []discord.ApplicationCommandOption{
 		discord.ApplicationCommandOptionInt{
 			Name:        "count",
 			Description: "The number of quotes to return",
 			Required:    true,
+			MinValue:    intPtr(1),
+			MaxValue:    intPtr(maxMultiQuoteCount),
 		},
 		discord.ApplicationCommandOptionBool{
 			Name:        "ephemeral",
@@ -34,16 +41,20 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	data := event.SlashCommandInteractionData()
 	ephemeral := data.Bool("ephemeral")
 	showID := data.Bool("show-id")
-	count := int(data.Int("count"))
-	quotes, err := getQuotesUntilLimit(event, pg, count, showID)
+
+	// Discord enforces the option's min/max, but clamp anyway in case the
+	// registered command is out of date.
+	count := min(max(data.Int("count"), 1), maxMultiQuoteCount)
+
+	quotes, err := pg.GetRandomQuotes(data.GuildID().String(), count)
 	if err != nil {
-		slog.Error("error on getting random quote", slog.Any("err", err))
+		slog.Error("error on getting random quotes", slog.Any("err", err))
 		replyQuoteLookupError(event, err)
 		return
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent(quotes).
+		SetContent(formatMultiQuote(quotes, showID, maxMessageLength)).
 		SetEphemeral(ephemeral).
 		SetAllowedMentions(noMentions).
 		Build(),
@@ -53,48 +64,38 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	}
 }
 
-func getQuotesUntilLimit(event *events.ApplicationCommandInteractionCreate, pg postgres.PostgresAccessor, count int, isShowID bool) (string, error) {
-	data := event.SlashCommandInteractionData()
-	quotes := ""
-	quoteIDs := ""
-	isCombined := false
-	slog.Info("ShowID: ", slog.Bool("showID", isShowID))
-	for i := 0; i < count; i++ {
-		message, err := pg.GetRandomQuote(data.GuildID().String())
-		if err != nil {
-			slog.Error("error on getting random quote", slog.Any("err", err))
-			return "", err
-		}
-		quoteIDs += "> **Quote ID: **" + message.ID.String() + "\n"
-		if isShowID {
-			if len(quotes+quoteIDs+"\n\n"+message.Quote) < 2000 {
-				quotes += message.Quote + "\n"
-				if len(quotes+quoteIDs+"\n")+100 > 2000 {
-					quotes = quoteIDs + "\n" + quotes
-					slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
-					isCombined = true
-					break
-				}
-			} else {
-				quotes = quoteIDs + "\n" + quotes
-				slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
-				isCombined = true
-				break
-			}
-		} else {
-			if len(quotes+"\n"+message.Quote) < 2000 {
-				quotes += message.Quote + "\n"
-			} else {
-				slog.Info("Multi-Quote: ", slog.Int("QuotesLength", len(quotes)), slog.Int("QuoteCount", i))
-				isCombined = true
-				break
-			}
-		}
+// formatMultiQuote renders as many of quotes as fit within maxLen characters.
+// With showID, the IDs of the included quotes are listed first. If not even
+// the first quote fits, it is truncated rather than returning nothing.
+func formatMultiQuote(quotes []postgres.Quote, showID bool, maxLen int) string {
+	if len(quotes) == 0 {
+		return ""
 	}
 
-	if !isCombined && isShowID {
-		quotes = quoteIDs + "\n" + quotes
+	result := ""
+	for n := 1; n <= len(quotes); n++ {
+		candidate := renderMultiQuote(quotes[:n], showID)
+		if utf8.RuneCountInString(candidate) > maxLen {
+			break
+		}
+		result = candidate
 	}
+	if result == "" {
+		result = truncate(renderMultiQuote(quotes[:1], showID), maxLen)
+	}
+	return result
+}
 
-	return quotes, nil
+func renderMultiQuote(quotes []postgres.Quote, showID bool) string {
+	var b strings.Builder
+	if showID {
+		for _, q := range quotes {
+			b.WriteString("> **Quote ID: **" + q.ID.String() + "\n")
+		}
+		b.WriteString("\n")
+	}
+	for _, q := range quotes {
+		b.WriteString(q.Quote + "\n")
+	}
+	return b.String()
 }
