@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -41,7 +42,8 @@ var (
 	}
 
 	// Cooldown map to track the last execution time of commands for each user
-	commandCooldowns = make(map[string]time.Time)
+	commandCooldowns   = make(map[string]time.Time)
+	commandCooldownsMu sync.Mutex
 
 	nonCooldownCommands = []string{
 		commands.AddQuoteCommandCreate.Name,
@@ -114,25 +116,16 @@ func commandListener(event *events.ApplicationCommandInteractionCreate, db postg
 		return
 	}
 
-	if !ephemeral && !contains(nonCooldownCommands, data.CommandName()) && !isAllowed {
-		userID := event.User().ID.String()
-		commandName := event.SlashCommandInteractionData().CommandName()
-
-		// Check if the user is within the cooldown period
-		if lastExecution, ok := commandCooldowns[userID+commandName]; ok {
-			if time.Since(lastExecution) < config.CooldownDuration {
-				remaining := config.CooldownDuration - time.Since(lastExecution)
-				event.CreateMessage(discord.NewMessageCreateBuilder().
-					SetContent("You are on cooldown. Please wait " + remaining.String() + " before using this command again.").
-					SetEphemeral(true).
-					Build(),
-				)
-				return
-			}
+	if !ephemeral && !contains(nonCooldownCommands, data.CommandName()) {
+		key := event.User().ID.String() + data.CommandName()
+		if remaining, onCooldown := checkCooldown(key, config.CooldownDuration); onCooldown {
+			event.CreateMessage(discord.NewMessageCreateBuilder().
+				SetContent("You are on cooldown. Please wait " + remaining.Round(time.Second).String() + " before using this command again.").
+				SetEphemeral(true).
+				Build(),
+			)
+			return
 		}
-
-		// Update the last execution time
-		commandCooldowns[userID+commandName] = time.Now()
 	}
 
 	if handler, ok := commandHandlers[data.CommandName()]; ok {
@@ -152,6 +145,21 @@ func modalListener(event *events.ModalSubmitInteractionCreate, db postgres.Postg
 	} else {
 		slog.Warn("unknown modal", slog.String("modal", event.Data.CustomID))
 	}
+}
+
+// checkCooldown reports whether key is still on cooldown and, if it is not,
+// starts a new cooldown period for it.
+func checkCooldown(key string, duration time.Duration) (time.Duration, bool) {
+	commandCooldownsMu.Lock()
+	defer commandCooldownsMu.Unlock()
+
+	if lastExecution, ok := commandCooldowns[key]; ok {
+		if elapsed := time.Since(lastExecution); elapsed < duration {
+			return duration - elapsed, true
+		}
+	}
+	commandCooldowns[key] = time.Now()
+	return 0, false
 }
 
 // contains checks if a slice contains a specific string
