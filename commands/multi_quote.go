@@ -44,6 +44,7 @@ func SendRandomMultiQuote(event *events.ApplicationCommandInteractionCreate, pg 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
 		SetContent(quotes).
 		SetEphemeral(ephemeral).
+		SetAllowedMentions(noMentions).
 		Build(),
 	)
 	if err != nil {

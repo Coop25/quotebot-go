@@ -42,6 +42,7 @@ func SendRandomQuote(event *events.ApplicationCommandInteractionCreate, pg postg
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
 		SetContent(message.Quote).
 		SetEphemeral(ephemeral).
+		SetAllowedMentions(noMentions).
 		Build(),
 	)
 	if err != nil {

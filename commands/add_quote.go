@@ -63,7 +63,8 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 			slog.Error("error on creating webhook client", slog.Any("err", err))
 		}
 		_, err = webhookClient.CreateMessage(discord.WebhookMessageCreate{
-			Content: "> __**Quote ID:**__ "+ message.ID.String()+ "\n\n" + message.Quote,
+			Content:         "> __**Quote ID:**__ " + message.ID.String() + "\n\n" + message.Quote,
+			AllowedMentions: noMentions,
 		})
 		if err != nil {
 			slog.Error("error on sending webhook", slog.Any("err", err))
@@ -77,7 +78,8 @@ func HandleAddQuoteModalSubmit(event *events.ModalSubmitInteractionCreate, pg po
 	}
 
 	err = event.CreateMessage(discord.NewMessageCreateBuilder().
-		SetContent("> __**Quote ID:**__ "+ message.ID.String()+ "\n\n" + message.Quote).
+		SetContent("> __**Quote ID:**__ " + message.ID.String() + "\n\n" + message.Quote).
+		SetAllowedMentions(noMentions).
 		Build(),
 	)
 	if err != nil {
