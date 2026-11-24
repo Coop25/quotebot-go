@@ -60,19 +60,19 @@ func RollCommand(event *events.ApplicationCommandInteractionCreate, pg postgres.
 }
 
 func generateDiceArt(roll, sides int) string {
-    rollStr := strconv.Itoa(roll)
-    sidesStr := strconv.Itoa(sides)
-    width := len(sidesStr)
-    if len(rollStr) > width {
-        width = len(rollStr)
-    }
+	rollStr := strconv.Itoa(roll)
+	sidesStr := strconv.Itoa(sides)
+	width := len(sidesStr)
+	if len(rollStr) > width {
+		width = len(rollStr)
+	}
 
-    topBottom := "+" + strings.Repeat("-", width+2) + "+"
-    middle := "|" + strings.Repeat(" ", width+2) + "|"
+	topBottom := "+" + strings.Repeat("-", width+2) + "+"
+	middle := "|" + strings.Repeat(" ", width+2) + "|"
 
-    // Center the roll number
-    padding := (width - len(rollStr)) / 2
-    rollLine := "|" + strings.Repeat(" ", padding+1) + rollStr + strings.Repeat(" ", width-len(rollStr)-padding+1) + "|"
+	// Center the roll number
+	padding := (width - len(rollStr)) / 2
+	rollLine := "|" + strings.Repeat(" ", padding+1) + rollStr + strings.Repeat(" ", width-len(rollStr)-padding+1) + "|"
 
-    return fmt.Sprintf("%s\n%s\n%s\n%s\n%s", topBottom, middle, rollLine, middle, topBottom)
+	return fmt.Sprintf("%s\n%s\n%s\n%s\n%s", topBottom, middle, rollLine, middle, topBottom)
 }
