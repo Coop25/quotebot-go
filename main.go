@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -17,9 +19,13 @@ import (
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
 	"github.com/disgoorg/disgo/events"
+	"github.com/disgoorg/disgo/rest"
 	"github.com/disgoorg/disgo/webhook"
 	"github.com/disgoorg/snowflake/v2"
 )
+
+// gatewayReadyTimeout bounds how long startup waits for Discord's Ready event.
+const gatewayReadyTimeout = 60 * time.Second
 
 var (
 	commandHandlers = map[string]func(*events.ApplicationCommandInteractionCreate, postgres.PostgresAccessor){
@@ -79,9 +85,15 @@ func run() error {
 		defer newQuoteWebhook.Close(context.TODO())
 	}
 
+	ready := make(chan struct{})
+	var readyOnce sync.Once
+
 	client, err := disgo.New(config.Token,
 		bot.WithDefaultGateway(),
 		bot.WithEventListenerFunc(func(event bot.Event) {
+			if _, ok := event.(*events.Ready); ok {
+				readyOnce.Do(func() { close(ready) })
+			}
 			if e, ok := event.(*events.ApplicationCommandInteractionCreate); ok {
 				commandListener(e, postgresAccessor, config)
 			}
@@ -101,18 +113,36 @@ func run() error {
 
 	defer client.Close(context.TODO())
 
-	// Not fatal: commands registered on a previous run keep working.
 	if _, err = client.Rest().SetGuildCommands(client.ApplicationID(), guildID, newCommands); err != nil {
+		// A 401 means the token is invalid, so the bot can never work.
+		var restErr rest.Error // disgo returns rest.Error by value
+		if errors.As(err, &restErr) && restErr.Response != nil && restErr.Response.StatusCode == http.StatusUnauthorized {
+			return fmt.Errorf("registering commands: invalid TOKEN: %w", err)
+		}
+		// Otherwise not fatal: commands registered on a previous run keep working.
 		slog.Error("error while registering commands", slog.Any("err", err))
 	}
 
-	if err = client.OpenGateway(context.TODO()); err != nil {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+
+	// disgo's OpenGateway retries forever, and a rejected token only shows up
+	// as the connection being closed later. Bound both and treat "never
+	// became ready" as a startup failure.
+	openCtx, cancel := context.WithTimeout(context.Background(), gatewayReadyTimeout)
+	defer cancel()
+	if err = client.OpenGateway(openCtx); err != nil {
 		return fmt.Errorf("connecting to gateway: %w", err)
+	}
+	select {
+	case <-ready:
+	case <-openCtx.Done():
+		return fmt.Errorf("gateway did not become ready within %s; check TOKEN and network access to Discord", gatewayReadyTimeout)
+	case <-s:
+		return nil
 	}
 
 	slog.Info("Bot is running. Press CTRL+C to exit.")
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-s
 	return nil
 }
