@@ -14,6 +14,10 @@ the bot itself and go into a new instance somewhere else.
   the quotes are loaded.
 - Only the owner's Discord account can run either command.
 - `/export` doubles as a manual backup that can be run at any time.
+- A `docker-compose.yml` that runs the bot and its own Postgres in one stack
+  (deployable as a Portainer stack). The bot is preconfigured to reach that
+  database, so only the Discord settings (`TOKEN`, `GUILD_ID`, `OWNER_ID`,
+  and so on) have to be filled in.
 
 ## Non-goals
 
